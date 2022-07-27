@@ -12,6 +12,10 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s: %(message)s", level=logging.NOTSET
 )
 
+facebook_scraper.set_user_agent(
+    "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+)
+
 
 @click.command()
 @click.option(
@@ -50,7 +54,7 @@ def main(date_start, date_end):
         while True:
             try:
                 for post in facebook_scraper.get_posts(
-                    group,
+                    group=group,
                     page_limit=None,
                     start_url=start_url,
                     request_url_callback=handle_pagination_url,
@@ -70,7 +74,7 @@ def main(date_start, date_end):
                     else:
                         # If post within time frame, save post
                         with open(download_dir / f"{post['post_id']}.json", "w") as f:
-                            json.dump(post, f)
+                            json.dump(post, f, default=str)
                         k = 0
 
                 logging.info(f"Completed {group}")
@@ -113,9 +117,9 @@ def handle_pagination_url(url):
 def try_to_resume(resume_file):
     """Resume from file if exists"""
     if resume_file.exists():
+        logging.info(f"Resuming from file {resume_file}")
         with open(resume_file, "r") as f:
             start_url = f.read()
-        logging.info(f"Resuming from file {resume_file}")
         return start_url
 
 
