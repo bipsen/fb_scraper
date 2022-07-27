@@ -16,6 +16,8 @@ facebook_scraper.set_user_agent(
     "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
 )
 
+start_url = None
+
 
 @click.command()
 @click.option(
@@ -103,9 +105,6 @@ def check_limit():
     """Dummy function to use the ratelimit library with
     the post generator"""
     return
-
-
-start_url = None
 
 
 def handle_pagination_url(url):
