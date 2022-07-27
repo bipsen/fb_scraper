@@ -13,42 +13,12 @@ logging.basicConfig(
 )
 
 
-@sleep_and_retry
-@limits(calls=15, period=900)
-def check_limit():
-    """Dummy function to use the ratelimit library with
-    the post generator"""
-    return
-
-
-start_url = None
-
-
-def handle_pagination_url(url):
-    """To paginate scraping between script breaks"""
-    global start_url
-    start_url = url
-
-
-def try_to_resume(resume_file):
-    """Resume from file if exists"""
-    if resume_file.exists():
-        with open(resume_file, "r") as f:
-            start_url = f.read()
-        logging.info(f"Resuming from file {resume_file}")
-        return start_url
-
-
-def remove_resume_file(resume_file):
-    if resume_file.exists():
-        resume_file.unlink()
-
-
+@click.command()
 @click.option(
-    "--date-start", type=click.DateTime(formats=["%Y-%m-%d"]), default=str(date.min())
+    "--date-start", type=click.DateTime(formats=["%Y-%m-%d"]), default=str(date.min)
 )
 @click.option(
-    "--date-end", type=click.DateTime(formats=["%Y-%m-%d"]), default=str(date.max())
+    "--date-end", type=click.DateTime(formats=["%Y-%m-%d"]), default=str(date.max)
 )
 def main(date_start, date_end):
 
@@ -121,6 +91,37 @@ def main(date_start, date_end):
         # Save finished group
         with open("finished_groups.txt", "a"):
             f.write(group, "\n")
+
+
+@sleep_and_retry
+@limits(calls=15, period=900)
+def check_limit():
+    """Dummy function to use the ratelimit library with
+    the post generator"""
+    return
+
+
+start_url = None
+
+
+def handle_pagination_url(url):
+    """To paginate scraping between script breaks"""
+    global start_url
+    start_url = url
+
+
+def try_to_resume(resume_file):
+    """Resume from file if exists"""
+    if resume_file.exists():
+        with open(resume_file, "r") as f:
+            start_url = f.read()
+        logging.info(f"Resuming from file {resume_file}")
+        return start_url
+
+
+def remove_resume_file(resume_file):
+    if resume_file.exists():
+        resume_file.unlink()
 
 
 if __name__ == "__main__":
