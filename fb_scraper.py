@@ -32,7 +32,7 @@ def main(date_start, date_end):
             finished_groups = f.read().splitlines()
         groups = [g for g in groups if not g in finished_groups]
 
-    facebook_scraper.set_cookies("cookies.txt")
+    facebook_scraper.set_cookies("cookies.json")
 
     k = 0  # For casual time window
 
@@ -75,6 +75,8 @@ def main(date_start, date_end):
 
                 logging.info(f"Completed {group}")
                 remove_resume_file(resume_file)
+                with open("finished_groups.txt", "a"):
+                    f.write(f"{group}\n")
                 break
 
             except facebook_scraper.exceptions.TemporarilyBanned:
@@ -88,10 +90,6 @@ def main(date_start, date_end):
                     f.write(start_url)
                 logging.error("Saved resume info")
                 raise e
-
-        # Save finished group
-        with open("finished_groups.txt", "a"):
-            f.write(group, "\n")
 
 
 @sleep_and_retry
