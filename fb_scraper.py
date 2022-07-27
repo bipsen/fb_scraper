@@ -26,7 +26,7 @@ def main(date_start, date_end):
     with open("groups.txt", "r") as f:
         groups = f.read().splitlines()
 
-     # Keeps track of already done groups
+    # Keeps track of already done groups
     if Path("finished_groups.txt").exists():
         with open("finished_groups.txt", "r") as f:
             finished_groups = f.read().splitlines()
@@ -86,9 +86,10 @@ def main(date_start, date_end):
                 sleep(600)
 
             except Exception as e:
-                with open(resume_file, "w") as f:
-                    f.write(start_url)
-                logging.error("Saved resume info")
+                if start_url:
+                    with open(resume_file, "w") as f:
+                        f.write(start_url)
+                    logging.error("Saved resume info")
                 raise e
 
 
