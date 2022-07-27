@@ -26,10 +26,11 @@ def main(date_start, date_end):
     with open("groups.txt", "r") as f:
         groups = f.read().splitlines()
 
-    # Keeps track of already done groups
-    with open("finished_groups.txt", "r") as f:
-        finished_groups = f.read().splitlines()
-    groups = [g for g in groups if not g in finished_groups]
+     # Keeps track of already done groups
+    if Path("finished_groups.txt").exists()
+        with open("finished_groups.txt", "r") as f:
+            finished_groups = f.read().splitlines()
+        groups = [g for g in groups if not g in finished_groups]
 
     facebook_scraper.set_cookies("cookies.txt")
 
