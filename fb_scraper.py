@@ -27,7 +27,7 @@ def main(date_start, date_end):
         groups = f.read().splitlines()
 
      # Keeps track of already done groups
-    if Path("finished_groups.txt").exists()
+    if Path("finished_groups.txt").exists():
         with open("finished_groups.txt", "r") as f:
             finished_groups = f.read().splitlines()
         groups = [g for g in groups if not g in finished_groups]
