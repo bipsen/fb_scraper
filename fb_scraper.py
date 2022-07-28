@@ -5,6 +5,7 @@ import logging
 from functools import partial
 import facebook_scraper
 from backoff import on_exception, expo
+from ratelimit import limits, sleep_and_retry
 import click
 
 logging.basicConfig(
@@ -109,6 +110,8 @@ class Scraper:
             return start_url
 
     @staticmethod
+    @sleep_and_retry
+    @limits(calls=50, period=900)
     @on_exception(
         partial(expo, factor=60),
         facebook_scraper.exceptions.TemporarilyBanned,
