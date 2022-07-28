@@ -100,7 +100,7 @@ def main(date_start, date_end):
 
 
 @sleep_and_retry
-@limits(calls=15, period=900)
+@limits(calls=50, period=900)
 def check_limit():
     """Dummy function to use the ratelimit library with
     the post generator"""
