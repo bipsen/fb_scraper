@@ -6,6 +6,7 @@ import logging
 import facebook_scraper
 from backoff import on_exception, expo
 import click
+from functools import partial
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s: %(message)s", level=logging.INFO
@@ -109,7 +110,11 @@ class Scraper:
             return start_url
 
     @staticmethod
-    @on_exception(expo, facebook_scraper.exceptions.TemporarilyBanned, max_tries=20)
+    @on_exception(
+        partial(expo, factor=60),
+        facebook_scraper.exceptions.TemporarilyBanned,
+        max_time=100000,
+    )
     def get_next_post(post_iterator):
         return next(post_iterator)
 
