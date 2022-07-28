@@ -78,9 +78,11 @@ class Scraper:
         """Checks whether post is within date range. It expects an almost chronological order,
         allowing for up to k older-than-date-end posts in a row. Return True for download,
         False for skip and raises a StopIteration if allowed_before is exceeded."""
+
         # Post after limit, skip
         if post_time > self.date_end:
             return False
+
         # Post is from before limit, skip if k<=allowed_before else end
         if post_time <= self.date_start:
             if self.k > allowed_before:
@@ -88,6 +90,7 @@ class Scraper:
             else:
                 self.k += 1
                 return False
+
         # Post within time period
         self.k = 0
         return True
