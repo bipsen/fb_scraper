@@ -1,12 +1,11 @@
 from pathlib import Path
 import json
 from datetime import date
-from time import sleep
 import logging
+from functools import partial
 import facebook_scraper
 from backoff import on_exception, expo
 import click
-from functools import partial
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s: %(message)s", level=logging.INFO
