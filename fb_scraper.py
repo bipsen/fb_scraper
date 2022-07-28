@@ -12,7 +12,6 @@ logging.basicConfig(
 )
 logging.getLogger("facebook_scraper").setLevel(logging.CRITICAL)
 
-
 start_url = None
 
 
@@ -77,7 +76,7 @@ def main(date_start, date_end):
                         k = 0
 
                 logging.info(f"Completed {group}")
-                remove_resume_file(resume_file)
+                resume_file.unlink(missing_ok=True)
                 with open("finished_groups.txt", "a"):
                     f.write(f"{group}\n")
                 break
@@ -117,11 +116,6 @@ def try_to_resume(resume_file):
         with open(resume_file, "r") as f:
             start_url = f.read()
         return start_url
-
-
-def remove_resume_file(resume_file):
-    if resume_file.exists():
-        resume_file.unlink()
 
 
 if __name__ == "__main__":
