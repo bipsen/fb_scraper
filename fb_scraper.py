@@ -7,14 +7,11 @@ import facebook_scraper
 from ratelimit import limits, sleep_and_retry
 import click
 
-logging.basicConfig(level=logging.INFO)
 logging.basicConfig(
-    format="%(asctime)s | %(levelname)s: %(message)s", level=logging.NOTSET
+    format="%(asctime)s | %(levelname)s: %(message)s", level=logging.INFO
 )
+logging.getLogger("facebook_scraper").setLevel(logging.CRITICAL)
 
-facebook_scraper.set_user_agent(
-    "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
-)
 
 start_url = None
 
