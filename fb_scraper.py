@@ -4,15 +4,111 @@ from datetime import date
 from time import sleep
 import logging
 import facebook_scraper
-from ratelimit import limits, sleep_and_retry
+from backoff import on_exception, expo
 import click
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s: %(message)s", level=logging.INFO
 )
 logging.getLogger("facebook_scraper").setLevel(logging.CRITICAL)
+logging.getLogger("backoff").addHandler(logging.StreamHandler())
 
-start_url = None
+
+class Scraper:
+    """Wrapper for facebook-scraper that can take in a time frame, has implemented request backoff, saves resume info and more.
+    Expects there to be a file called groups.txt with group ids."""
+
+    def __init__(self, date_start, date_end):
+
+        facebook_scraper.set_cookies("cookies.json")
+
+        self.date_start = date_start
+        self.date_end = date_end
+        self.start_url = None
+        self.k = None
+
+    def scrape_group(self, group_id):
+        logging.info(f"Now harvesting {group_id}")
+
+        # If resume file exists, use it
+        resume_file = Path(f"start_url_{group_id}")
+        self.start_url = self.try_to_resume(resume_file)
+
+        # Create download folder
+        download_dir = Path("downloads") / group_id
+        download_dir.mkdir(exist_ok=True, parents=True)
+
+        # Create post iterator
+        post_iterator = facebook_scraper.get_posts(
+            group=group_id,
+            page_limit=None,
+            start_url=self.start_url,
+            request_url_callback=self.handle_pagination_url,
+        )
+
+        # Get posts with while loop so we can use exponential backoff
+        while True:
+            try:
+                post = self.get_next_post(post_iterator)
+
+                # If post within time frame, save it
+                if self.check_timeframe(post["time"]):
+                    with open(download_dir / f"{post['post_id']}.json", "w") as f:
+                        json.dump(post, f, default=str)
+
+            # We reached the end of posts or end of time frame
+            except StopIteration:
+                break
+
+            # Save resume file on other exceptions
+            except Exception as e:
+                if self.start_url:
+                    with open(resume_file, "w") as f:
+                        f.write(self.start_url)
+                    logging.error("Saved resume info")
+                raise e
+
+        # Group finished
+        logging.info(f"Completed {group_id}")
+        resume_file.unlink(missing_ok=True)
+        with open("finished_groups.txt", "a") as f:
+            f.write(f"{group_id}\n")
+
+    def check_timeframe(self, post_time, allowed_before=10):
+        """Checks whether post is within date range. It expects an almost chronological order,
+        allowing for up to k older-than-date-end posts in a row. Return True for download,
+        False for skip and raises a StopIteration if allowed_before is exceeded."""
+        # Post after limit, skip
+        if post_time > self.date_end:
+            return False
+        # Post is from before limit, skip if k<=allowed_before else end
+        if post_time <= self.date_start:
+            if self.k > allowed_before:
+                raise StopIteration
+            else:
+                self.k += 1
+                return False
+        # Post within time period
+        self.k = 0
+        return True
+
+    def handle_pagination_url(self, url):
+        """To paginate scraping between script breaks"""
+        self.start_url = url
+
+    @staticmethod
+    def try_to_resume(resume_file):
+        """Resume from file if exists"""
+        if resume_file.exists():
+            logging.info(f"Resuming from file {resume_file}")
+            with open(resume_file, "r") as f:
+                start_url = f.read()
+            return start_url
+
+    @staticmethod
+    @on_exception(expo, facebook_scraper.exceptions.TemporarilyBanned, max_tries=20)
+    def get_next_post(post_iterator):
+        return next(post_iterator)
 
 
 @click.command()
@@ -24,6 +120,8 @@ start_url = None
 )
 def main(date_start, date_end):
 
+    s = Scraper(date_start, date_end)
+
     # File with target group ids
     with open("groups.txt", "r") as f:
         groups = f.read().splitlines()
@@ -34,88 +132,8 @@ def main(date_start, date_end):
             finished_groups = f.read().splitlines()
         groups = [g for g in groups if not g in finished_groups]
 
-    facebook_scraper.set_cookies("cookies.json")
-
-    k = 0  # For casual time window
-
     for group in groups:
-
-        logging.info(f"Now harvesting {group}")
-
-        resume_file = Path(f"start_url_{group}")
-        start_url = try_to_resume(resume_file)
-
-        # Create download folder
-        download_dir = Path("downloads") / group
-        download_dir.mkdir(exist_ok=True, parents=True)
-
-        while True:
-            try:
-                for post in facebook_scraper.get_posts(
-                    group=group,
-                    page_limit=None,
-                    start_url=start_url,
-                    request_url_callback=handle_pagination_url,
-                ):
-
-                    check_limit()
-
-                    # Check time
-                    if post["time"] > date_end:
-                        continue
-                    elif post["time"] <= date_start:
-                        k += 1
-                        if k == 20:
-                            break
-                        else:
-                            continue
-                    else:
-                        # If post within time frame, save post
-                        with open(download_dir / f"{post['post_id']}.json", "w") as f:
-                            json.dump(post, f, default=str)
-                        k = 0
-
-                logging.info(f"Completed {group}")
-                resume_file.unlink(missing_ok=True)
-                with open("finished_groups.txt", "a"):
-                    f.write(f"{group}\n")
-                break
-
-            except facebook_scraper.exceptions.TemporarilyBanned:
-                logging.info(
-                    f"Temporary ban while harvesting {group}. Sleeping 10 minutes."
-                )
-                sleep(600)
-
-            except Exception as e:
-                if start_url:
-                    with open(resume_file, "w") as f:
-                        f.write(start_url)
-                    logging.error("Saved resume info")
-                raise e
-
-
-@sleep_and_retry
-@limits(calls=50, period=900)
-def check_limit():
-    """Dummy function to use the ratelimit library with
-    the post generator"""
-    return
-
-
-def handle_pagination_url(url):
-    """To paginate scraping between script breaks"""
-    global start_url
-    start_url = url
-
-
-def try_to_resume(resume_file):
-    """Resume from file if exists"""
-    if resume_file.exists():
-        logging.info(f"Resuming from file {resume_file}")
-        with open(resume_file, "r") as f:
-            start_url = f.read()
-        return start_url
+        s.scrape_group(group)
 
 
 if __name__ == "__main__":
