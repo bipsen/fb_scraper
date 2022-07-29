@@ -61,6 +61,9 @@ class Scraper:
             except StopIteration:
                 break
 
+            except facebook_scraper.exceptions.UnexpectedResponse:
+                logging.error("facebook_scraper.exceptions.UnexpectedResponse")
+
             # Save resume file on other exceptions
             except Exception as e:
                 if self.start_url:
