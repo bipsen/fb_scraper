@@ -6,10 +6,7 @@ from functools import partial
 import facebook_scraper
 from backoff import on_exception, expo
 from ratelimit import limits, sleep_and_retry
-
-
-DATE_START = datetime.min
-DATE_END = datetime.max
+import click
 
 
 logging.basicConfig(
@@ -37,7 +34,7 @@ class Scraper:
 
         # If resume file exists, use it
         self.resume_file = Path(f"start_url_{group_id}")
-        self.start_url = self.try_to_resume(self.resume_file)
+        self.start_url = self.try_to_resume()
 
         # Create download folder
         download_dir = Path("downloads") / group_id
@@ -132,7 +129,14 @@ class Scraper:
             return start_url
 
 
-def main(date_start=DATE_START, date_end=DATE_END):
+@click.command()
+@click.option(
+    "--date-start", type=click.DateTime(formats=["%Y-%m-%d"]), default=str(date.min)
+)
+@click.option(
+    "--date-end", type=click.DateTime(formats=["%Y-%m-%d"]), default=str(date.max)
+)
+def main(date_start, date_end):
 
     s = Scraper(date_start, date_end)
 
