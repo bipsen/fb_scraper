@@ -4,7 +4,7 @@ from datetime import datetime, date
 import logging
 from functools import partial
 import facebook_scraper
-from backoff import on_exception, expo
+from time import sleep
 from ratelimit import limits, sleep_and_retry
 import click
 
@@ -96,21 +96,22 @@ class Scraper:
         self.start_url = url
 
     @sleep_and_retry
-    @limits(calls=50, period=900)
-    @on_exception(
-        partial(expo, factor=60),
-        facebook_scraper.exceptions.TemporarilyBanned,
-        max_time=100000,
-    )
+    @limits(calls=20, period=900)
     def get_next_post(self, group_id):
-        return next(
-            facebook_scraper.get_posts(
-                group=group_id,
-                page_limit=None,
-                start_url=self.start_url,
-                request_url_callback=self.handle_pagination_url,
+        try:
+            return next(
+                facebook_scraper.get_posts(
+                    group=group_id,
+                    page_limit=None,
+                    start_url=self.start_url,
+                    request_url_callback=self.handle_pagination_url,
+                )
             )
-        )
+        except facebook_scraper.exceptions.TemporarilyBanned:
+            logging.warning(f"Temporarily banned")
+            sleep(3600)
+            return self.get_next_post(group_id)
+        
 
     def end_group_scrape(self, group_id):
         logging.info(f"Completed {group_id}")
@@ -156,3 +157,4 @@ def main(date_start, date_end):
 
 if __name__ == "__main__":
     main()
+
