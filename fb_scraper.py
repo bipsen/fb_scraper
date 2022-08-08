@@ -13,11 +13,10 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s: %(message)s", level=logging.INFO
 )
 logging.getLogger("facebook_scraper").setLevel(logging.CRITICAL)
-logging.getLogger("backoff").addHandler(logging.StreamHandler())
 
 
 class Scraper:
-    """Wrapper for facebook-scraper that can take in a time frame, has implemented request backoff, saves resume info and more.
+    """Wrapper for facebook-scraper that can take in a time frame, has implemented request sleeps, saves resume info and more.
     Expects there to be a file called groups.txt with group ids."""
 
     def __init__(self, date_start, date_end):
@@ -40,7 +39,7 @@ class Scraper:
         download_dir = Path("downloads") / group_id
         download_dir.mkdir(exist_ok=True, parents=True)
 
-        # Get posts with while loop so we can use exponential backoff
+        # Get posts with while loop so we can use exponential backoff (NOT USED ANYMORE)
         while True:
             try:
                 post = self.get_next_post(group_id)
