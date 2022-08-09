@@ -9,9 +9,10 @@ import facebook_scraper
 
 
 def handle_pagination_url(url):
-    if resume_file.exists():
-        with open(resume_file, "w") as f:
-            f.write(url + "\n")
+    global start_url
+    start_url = url
+    with open(resume_file, "w") as f:
+        f.write(url + "\n")
 
 parser = argparse.ArgumentParser(description='Harvest facebook posts from multiple posts')
 parser.add_argument('--start-date', type=lambda s: datetime.strptime(s, '%Y-%m-%d'))
@@ -52,7 +53,7 @@ for group in groups:
 
         try:
             for post in facebook_scraper.get_posts(group=group, start_url=start_url, page_limit=None, request_url_callback=handle_pagination_url):
-                if post['time'] < args.start_date:
+                if post['time'] and post['time'] < args.start_date:
                     if k > 5:
                         break
                     else:
