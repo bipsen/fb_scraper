@@ -1,159 +1,75 @@
+import argparse
+from datetime import datetime
 from pathlib import Path
-import json
-from datetime import datetime, date
-import logging
-from functools import partial
-import facebook_scraper
 from time import sleep
-from ratelimit import limits, sleep_and_retry
-import click
+from random import randint
+import logging
+import json
+import facebook_scraper
 
+
+def handle_pagination_url(url):
+    if resume_file.exists():
+        with open(resume_file, "w") as f:
+            f.write(url + "\n")
+
+parser = argparse.ArgumentParser(description='Harvest facebook posts from multiple posts')
+parser.add_argument('--start-date', type=lambda s: datetime.strptime(s, '%Y-%m-%d'))
+args = parser.parse_args()
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s: %(message)s", level=logging.INFO
 )
 logging.getLogger("facebook_scraper").setLevel(logging.CRITICAL)
 
+with open('groups.txt','r') as f:
+    groups = f.read().splitlines()
+if Path('finished_groups.txt').exists():
+    with open('finished_groups.txt', 'r') as f:
+        finished_groups = f.read().splitlines()
+else:
+    finished_groups = list()
+groups = [g for g in groups if not g in finished_groups]
 
-class Scraper:
-    """Wrapper for facebook-scraper that can take in a time frame, has implemented request sleeps, saves resume info and more.
-    Expects there to be a file called groups.txt with group ids."""
+facebook_scraper.set_cookies('cookies.json')
 
-    def __init__(self, date_start, date_end):
 
-        facebook_scraper.set_cookies("cookies.json")
+for group in groups:
+    logging.info(f"Now harvesting {group}")
+    k = 0
+    start_url = None
+    download_path = Path('downloads') / group
+    download_path.mkdir(exist_ok=True, parents=True)
 
-        self.date_start = date_start
-        self.date_end = date_end
-        self.start_url = None
-        self.k = None
+    while True:
+        resume_file = Path(f'resume_file_{group}')
+        if resume_file.exists():
+            with open(resume_file, "r") as f:
+                existing_url = f.readline().strip()
+            if existing_url:
+                start_url = existing_url
+                logging.info(f"Picking up from {start_url}")
 
-    def scrape_group(self, group_id):
-        logging.info(f"Now harvesting {group_id}")
-
-        # If resume file exists, use it
-        self.resume_file = Path(f"start_url_{group_id}")
-        self.start_url = self.try_to_resume()
-
-        # Create download folder
-        download_dir = Path("downloads") / group_id
-        download_dir.mkdir(exist_ok=True, parents=True)
-
-        # Get posts with while loop so we can use exponential backoff (NOT USED ANYMORE)
-        while True:
-            try:
-                post = self.get_next_post(group_id)
-
-                # If post within time frame, save it
-                if self.check_timeframe(post["time"]):
-                    with open(download_dir / f"{post['post_id']}.json", "w") as f:
-                        json.dump(post, f, default=str)
-
-            # We reached the end of posts or end of time frame
-            except StopIteration:
-                break
-
-            except facebook_scraper.exceptions.NotFound:
-                logging.error("Group not found")
-
-            except facebook_scraper.exceptions.UnexpectedResponse:
-                logging.error("facebook_scraper.exceptions.UnexpectedResponse")
-
-            # Save resume file on other exceptions
-            except Exception as e:
-                if self.start_url:
-                    with open(self.resume_file, "w") as f:
-                        f.write(self.start_url)
-                    logging.error("Saved resume info")
-                raise e
-
-        self.end_group_scrape()
-
-    def check_timeframe(self, post_time, allowed_before=10):
-        """Checks whether post is within date range. It expects an almost chronological order,
-        allowing for up to k older-than-date-end posts in a row. Return True for download,
-        False for skip and raises a StopIteration if allowed_before is exceeded."""
-
-        # Post after limit, skip
-        if post_time > self.date_end:
-            return False
-
-        # Post is from before limit, skip if k<=allowed_before else end
-        if post_time <= self.date_start:
-            if self.k > allowed_before:
-                raise StopIteration
-            else:
-                self.k += 1
-                return False
-
-        # Post within time period
-        self.k = 0
-        return True
-
-    def handle_pagination_url(self, url):
-        """To paginate scraping between script breaks"""
-        self.start_url = url
-
-    @sleep_and_retry
-    @limits(calls=20, period=900)
-    def get_next_post(self, group_id):
         try:
-            return next(
-                facebook_scraper.get_posts(
-                    group=group_id,
-                    page_limit=None,
-                    start_url=self.start_url,
-                    request_url_callback=self.handle_pagination_url,
-                )
-            )
+            for post in facebook_scraper.get_posts(group=group, start_url=start_url, page_limit=None, request_url_callback=handle_pagination_url):
+                if post['time'] < args.start_date:
+                    if k > 5:
+                        break
+                    else:
+                        k += 1
+                else:
+                    k = 0
+                    with open(download_path / f"{post['post_id']}.json", 'w') as f:
+                        json.dump(post, f, default=str)
+        except facebook_scraper.exceptions.NotFound:
+            logging.error("Group not found")
+            break
         except facebook_scraper.exceptions.TemporarilyBanned:
             logging.warning(f"Temporarily banned")
-            sleep(3600)
-            return self.get_next_post(group_id)
-        
-
-    def end_group_scrape(self, group_id):
-        logging.info(f"Completed {group_id}")
-        self.resume_file.unlink(missing_ok=True)
-        self.start_url = None
-        self.k = 0
-        with open("finished_groups.txt", "a") as f:
-            f.write(f"{group_id}\n")
-
-    def try_to_resume(self):
-        """Resume from file if exists"""
-        if self.resume_file.exists():
-            logging.info(f"Resuming from file {self.resume_file}")
-            with open(self.resume_file, "r") as f:
-                start_url = f.read()
-            return start_url
-
-
-@click.command()
-@click.option(
-    "--date-start", type=click.DateTime(formats=["%Y-%m-%d"]), default=str(date.min)
-)
-@click.option(
-    "--date-end", type=click.DateTime(formats=["%Y-%m-%d"]), default=str(date.max)
-)
-def main(date_start, date_end):
-
-    s = Scraper(date_start, date_end)
-
-    # File with target group ids
-    with open("groups.txt", "r") as f:
-        groups = f.read().splitlines()
-
-    # Keeps track of already done groups
-    if Path("finished_groups.txt").exists():
-        with open("finished_groups.txt", "r") as f:
-            finished_groups = f.read().splitlines()
-        groups = [g for g in groups if not g in finished_groups]
-
-    for group in groups:
-        s.scrape_group(group)
-
-
-if __name__ == "__main__":
-    main()
-
+            sleep(randint(1800, 5400))
+        else:
+            logging.info(f"Finished harvesting {group}")
+            with open('finished_groups.txt', 'a') as f:
+                f.write(f"{group}\n")
+            sleep(randint(1800, 5400))
+            break
