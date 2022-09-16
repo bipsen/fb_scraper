@@ -1,6 +1,6 @@
 # A little wrapper script for facebook-scraper
 
-The main purpose of this script is contiously running facebook-scraper with many groups.
+The main purpose of this script is continuously running facebook-scraper with many groups.
 
 You can run this script in the terminal like
 
