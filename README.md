@@ -1,5 +1,7 @@
 # A little wrapper script for facebook-scraper
 
+The main purpose of this script is contiously running facebook-scraper with many groups.
+
 You can run this script in the terminal like
 
     python script.py --tablename=AIRTABLE_TABLE_NAME --username=FACEBOOK_USERNAME --password=PASSWORD --latest-date=2000-01-01
