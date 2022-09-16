@@ -12,6 +12,13 @@ or simply by filling out `args.txt` and running
     
 The script uses [docket](https://github.com/bipsen/docket), so that needs to be set up first.
 
+## Install
+    
+    # Make a virtual environment, change into it and install requirements
+    python -m venv venv
+    source venv/bin/activate
+    pip install -r requirements.txt
+
 ## To do
 
 * Docket logging makes facebook-scraper log everything.
