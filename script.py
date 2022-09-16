@@ -9,7 +9,6 @@ import facebook_scraper
 class ResumeManager:
     def __init__(self):
         self.start_url = None
-        self.resume_file = None
         self.resume_dir = Path("resume_files")
         self.resume_dir.mkdir(exist_ok=True)
 
@@ -31,6 +30,8 @@ class ResumeManager:
                 existing_url = f.readline().strip()
             if existing_url:
                 self.start_url = existing_url
+        else:
+            self.start_url = None
 
 
 def save_post(post, download_path):
