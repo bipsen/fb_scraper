@@ -1,5 +1,15 @@
 # A little wrapper script for facebook-scraper
 
-You can run this script in the terminal like:
+You can run this script in the terminal like
 
-    python fb_scraper.py --date-start 2019-01-01 --date-end 20205-01-01
+    python script.py --tablename=AIRTABLE_TABLE_NAME --username=FACEBOOK_USERNAME --password=PASSWORD --latest-date=2000-01-01
+    
+or simply by filling out `args.txt` and running
+
+    python script.py +args.txt
+    
+The script uses [docket](https://github.com/bipsen/docket), so that needs to be set up first.
+
+## To do
+
+* Docket logging makes facebook-scraper log everything.
