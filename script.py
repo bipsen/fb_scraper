@@ -2,8 +2,13 @@ from datetime import datetime
 from pathlib import Path
 import json
 import argparse
+from time import sleep
 from docket import Docket
 import facebook_scraper
+
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 class ResumeManager:
@@ -60,12 +65,28 @@ if __name__ == "__main__":
 
     for group in groups.get_jobs():
         rm.update_target(group)
-        for post in facebook_scraper.get_posts(
-            group=group,
-            start_url=rm.start_url,
-            page_limit=None,
-            request_url_callback=rm.handle_pagination_url,
-            latest_date=args.latest_date,
-        ):
-            download_path = Path("downloads") / group / f"{post['post_id']}.json"
-            save_post(post, download_path)
+
+        while True:
+            try:
+                for post in facebook_scraper.get_posts(
+                    group=group,
+                    start_url=rm.start_url,
+                    page_limit=None,
+                    request_url_callback=rm.handle_pagination_url,
+                    # latest_date=args.latest_date  # We handle manually, see issue 817
+                    # cookies='cookies.json',
+                ):
+                    # Check post time manually
+                    post_timestamp = post.get("timestamp")
+                    if post_timestamp:
+                        if datetime.fromtimestamp(post_timestamp) < args.latest_date:
+                            break
+
+                    download_path = (
+                        Path("downloads") / group / f"{post['post_id']}.json"
+                    )
+                    save_post(post, download_path)
+                break
+            except facebook_scraper.exceptions.TemporarilyBanned:
+                logging.info("Temporarily banned, sleeping for 10m")
+                sleep(600)
