@@ -6,10 +6,6 @@ from time import sleep
 from docket import Docket
 import facebook_scraper
 
-import logging
-
-logging.basicConfig(level=logging.DEBUG)
-
 
 class ResumeManager:
     def __init__(self):
